@@ -59,23 +59,6 @@ function decodeEncodedPatterns($text)
     return $text;
 }
 
-// Csv file path
-$csvFile = 'C:\Users\tarik\OneDrive\Documents\Codes\Laravel\bar-designer\public\db.csv';
-
-//get line 2 from csv file
-$lines = file($csvFile);
-$line = $lines[1];
-//split line by comma
-$line = explode(';', $line);
-//create array with first element of line
-$arr = array();
-$arr[0] = $line[1];
-$arr[1] = $line[4];
-$arr[2] = $line[2];
-$arr[3] = $line[0];
-$arr[4] = $line[3];
-$arr[5] = $line[0];
-
 $xmlString = file_get_contents('C:\Users\tarik\OneDrive\Documents\Codes\Laravel\bar-designer\public\testcase.xml'); // Load the XML from a file
 $xml = new SimpleXMLElement($xmlString);
 
@@ -139,7 +122,6 @@ foreach ($xml->Items->children() as $item) {
                         $rotation = 'B';
                         break;
                 }
-                $code = $item['Code'] == '' ? $arr[$index++] : $item['Code']; // Placeholder for barcode data
                 $zpl .= "^FO$x,$y^BY2^BC$rotation,$height,Y,N,N,^FD{$text}^FS\n";
             }
             break;
