@@ -59,7 +59,7 @@ function decodeEncodedPatterns($text)
     return $text;
 }
 
-$xmlString = file_get_contents('C:\Users\tarik\OneDrive\Documents\Codes\Laravel\bar-designer\public\testcase.xml'); // Load the XML from a file
+$xmlString = file_get_contents('testcase.xml'); // Load the XML from a file
 $xml = new SimpleXMLElement($xmlString);
 
 // Assuming the units in the XML are in inches and the printer resolution is 203 DPI.
