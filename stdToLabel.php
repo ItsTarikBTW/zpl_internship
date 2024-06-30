@@ -12,5 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Save or use the updated $template as needed
     // For example, save to a new file
     file_put_contents('updated_output.zpl', $template);
+    echo "success";
 }
 ?>
