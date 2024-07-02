@@ -10,7 +10,7 @@
 <body class='p-4 flex flex-col justify-center items-center bg-gray-800 text-white h-screen'>
     <?php
     // Csv file path
-    $csvFile = 'C:\Users\tarik\OneDrive\Documents\Codes\Laravel\bar-designer\public\db.csv';
+    $csvFile = 'db.csv';
 
     //get line 2 from csv file
     $lines = file($csvFile);

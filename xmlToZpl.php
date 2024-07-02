@@ -81,28 +81,50 @@ foreach ($xml->Items->children() as $item) {
             $zpl .= "^FO$x,$y^GB$width,$height,$strokeThickness^FS\n";
             break;
         case 'TextItem':
-            // Extract font properties
+            // Extract font properties and other attributes
             $fontDetails = explode(',', $item['Font']);
-            $fontName = $fontDetails[0]; // Simplified handling, real implementation may vary
+            $fontName = $fontDetails[0];
             $fontSize = $fontDetails[1];
             $isBold = $fontDetails[2] === 'True';
-            $isItalic = $fontDetails[3] === 'True'; // Italic not directly supported in ZPL, shown for completeness
+            $isItalic = $fontDetails[3] === 'True';
+            $isUnderline = $fontDetails[4] === 'True';
 
-            // Map to ZPL font command (simplified, focusing on font size)
             // Assuming ^A0N is the default font, and size is directly applicable
-            $zplFontSize = $fontSize; // Simplify, real mapping may need conversion
+            $zplFontSize = $fontSize*1.5;
 
-            // ForeColor handling (simplified, assuming black text)
-            $foreColor = $item['ForeColor'] === 'White' ? '^FR' : ''; // ^FR reverses images, can simulate white text on black
+            // ForeColor handling
+            $foreColor = $item['ForeColor'] === 'White' ? '^FR' : '';
+
+            
+            $baseFontSize = 12;
+            $baseCharWidthInDots = 3;
+            
+            // Calculate the scaling factor based on actual font size
+            $fontSizeScalingFactor = $zplFontSize / $baseFontSize;
+            
+            // Adjust character width based on the actual font size
+            $adjustedCharWidth = $baseCharWidthInDots * $fontSizeScalingFactor;
+            
+            // Estimate text width
+            $textWidth = strlen($item['Text']) * $adjustedCharWidth;
+            $underlineY = $y + $zplFontSize ; // Adjust Y position for underline based on font size
 
             // Use ^FO (Field Origin), ^A (Font), ^FD (Field Data) for text, with positions in dots.
             $text = ($item['Name'] == "") ? decodeEncodedPatterns($item['Text']) : "{{" . $item['Name'] . "}}";
-            $zpl .= "^FO$x,$y^A0N,$zplFontSize,$zplFontSize$foreColor^FD$text^FS\n";
+            $zpl .= "^FO$x,$y^A0N,$zplFontSize,$zplFontSize$foreColor^FD$text^FS";
+
+            // Add underline if required
+            if ($isUnderline) {
+                // Draw a line (box) as underline, width and thickness need adjustment
+                $zpl .= "^FO$x,$underlineY^GB$textWidth,2,2^FS"; // Example: 2 dots high, full text width
+            }
+
+            $zpl .= "\n";
             break;
         case 'BarcodeItem':
             if ($item['Symbology'] == 'QRCode') {
                 // QR Code specific ZPL
-                $magnificationFactor = isset($item['MagnificationFactor']) ? (int)$item['MagnificationFactor'] : 2; // Default magnification factor
+                $magnificationFactor = isset($item['MagnificationFactor']) ? (int)$item['MagnificationFactor'] : 4; // Default magnification factor
                 $text = ($item['Name'] == "") ? decodeEncodedPatterns($item['Code']) : "{{" . $item['Name'] . "}}";
                 $errorCorrection = isset($item['ErrorCorrection']) ? $item['ErrorCorrection'] : 'Q'; // Default error correction
                 $zpl .= "^FO$x,$y^BQN,2,$magnificationFactor^FDHA,$text^FS\n";
@@ -122,6 +144,7 @@ foreach ($xml->Items->children() as $item) {
                         $rotation = 'B';
                         break;
                 }
+                $height=$height*0.6;
                 $zpl .= "^FO$x,$y^BY2^BC$rotation,$height,Y,N,N,^FD{$text}^FS\n";
             }
             break;
@@ -129,7 +152,7 @@ foreach ($xml->Items->children() as $item) {
             // Read the image file
             $imagePath = (string)$item['SourceData'];
             if (file_exists($imagePath)) {
-                // Load and convert image to binary string in ZPL format
+                // Load the image
                 $imageData = file_get_contents($imagePath);
                 $image = imagecreatefromstring($imageData);
 
@@ -137,17 +160,31 @@ foreach ($xml->Items->children() as $item) {
                 imagefilter($image, IMG_FILTER_GRAYSCALE);
                 imagefilter($image, IMG_FILTER_CONTRAST, -100);
 
+                // Get original dimensions
                 $width = imagesx($image);
                 $height = imagesy($image);
+
+                // Calculate new dimensions (90% of original)
+                $newWidth = $width * 0.8;
+                $newHeight = $height * 0.8;
+
+                // Explicitly convert to integers
+                $newWidth = (int)round($newWidth);
+                $newHeight = (int)round($newHeight);
+
+                // Resize the image
+                $imageResized = imagescale($image, $newWidth, $newHeight);
+
+                // Update dimensions for binary data conversion
+                $width = imagesx($imageResized);
+                $height = imagesy($imageResized);
                 $rowBytes = ceil($width / 8);
                 $totalBytes = $rowBytes * $height;
                 $binaryData = '';
-                $xtmp = $x;
-                $ytmp = $y;
                 for ($ytmp = 0; $ytmp < $height; $ytmp++) {
                     for ($xtmp = 0; $xtmp < $width; $xtmp++) {
-                        $pixel = imagecolorat($image, $xtmp, $ytmp);
-                        $binaryData .= (imagecolorsforindex($image, $pixel)['red'] > 128) ? '0' : '1';
+                        $pixel = imagecolorat($imageResized, $xtmp, $ytmp);
+                        $binaryData .= (imagecolorsforindex($imageResized, $pixel)['red'] > 128) ? '0' : '1';
                     }
                     $binaryData .= str_repeat('0', $rowBytes * 8 - $width); // Padding for full byte
                 }
@@ -159,6 +196,7 @@ foreach ($xml->Items->children() as $item) {
                 }
 
                 imagedestroy($image);
+                imagedestroy($imageResized);
 
                 $zpl .= "~DGimage.GRF,$totalBytes,$rowBytes,$hexData\n";
                 $zpl .= "^FO$x,$y^XGimage.GRF,1,1^FS\n";
